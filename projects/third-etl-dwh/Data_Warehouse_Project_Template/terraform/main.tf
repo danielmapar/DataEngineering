@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = "us-west-2"
+  region  = "us-east-1"
 }
 
 variable "vpc_cidr" { }
@@ -22,76 +22,6 @@ variable "rs_master_pass" { }
 variable "rs_nodetype" { }
 variable "rs_cluster_type" { }
 
-/*
-resource "aws_vpc" "redshift_vpc" {
-  cidr_block = var.vpc_cidr
-  enable_dns_hostnames = true
-}
-
-resource "aws_internet_gateway" "redshift_vpc_gw" {
-  vpc_id = aws_vpc.redshift_vpc.id
-  depends_on = [
-   aws_vpc.redshift_vpc
-  ]
-}
-
-resource "aws_default_security_group" "redshift_security_group" {
-  vpc_id     = aws_vpc.redshift_vpc.id
-  ingress {
-    from_port   = 5439
-    to_port     = 5439
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  depends_on = [
-    aws_vpc.redshift_vpc
-  ]
-}
-
-resource "aws_subnet" "redshift_subnet" {
-  vpc_id     = aws_vpc.redshift_vpc.id
-  cidr_block = var.redshift_subnet_cidr
-  availability_zone = "us-west-2a"
-  map_public_ip_on_launch = "true"
-  depends_on = [
-    aws_vpc.redshift_vpc
-  ]
-}
-
-resource "aws_default_route_table" "redshift_route_table" {
-  default_route_table_id = aws_vpc.redshift_vpc.default_route_table_id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.redshift_vpc_gw.id
-  }
-  depends_on = [
-    aws_vpc.redshift_vpc
-  ]
-}
-
-resource "aws_route_table_association" "redshift_route_table_association" {
-  subnet_id = aws_subnet.redshift_subnet.id
-  route_table_id = aws_default_route_table.redshift_route_table.id
-  depends_on = [
-    aws_vpc.redshift_vpc
-  ]
-}
-
-resource "aws_redshift_subnet_group" "redshift_subnet_group" {
-  name       = "redshift-subnet-group"
-  subnet_ids = [aws_subnet.redshift_subnet.id]
-  depends_on = [
-    aws_vpc.redshift_vpc
-  ]
-}
-*/
 
 resource "aws_iam_role_policy" "s3_full_access_policy" {
   name = "s3_full_access_policy"
@@ -133,14 +63,7 @@ resource "aws_redshift_cluster" "dwh" {
   master_password           = var.rs_master_pass
   node_type                 = var.rs_nodetype
   cluster_type              = var.rs_cluster_type
-  //cluster_subnet_group_name = aws_redshift_subnet_group.redshift_subnet_group.id
   skip_final_snapshot       = true
+  publicly_accessible       = true
   iam_roles                 = [aws_iam_role.redshift_role.arn]
-
-  /*depends_on = [
-    aws_vpc.redshift_vpc,
-    aws_default_security_group.redshift_security_group,
-    aws_redshift_subnet_group.redshift_subnet_group,
-    aws_iam_role.redshift_role
-  ]*/
 }
