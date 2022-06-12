@@ -1039,3 +1039,183 @@
     * For example, you might hear about newer database storage systems like `HBase` or `Cassandra`. There are also **distributed SQL engines** like `Impala` and `Presto`. Many of these technologies use query syntax that you are likely already familiar with based on your experiences with `Python and SQL`.
 
 * ![cassandra_vs_hbase](./images/cassandra_vs_hbase.png)
+
+
+### Data Wrangling with Spark
+
+* Why Spark Uses Functional Programming
+
+    * The core reason is that functional programming is perfect for distributed systems.
+
+        * Functional programming helps minimize mistakes that can cripple an entire distributed system.
+        
+    * ![spark_func](./images/spark_func1.png)
+
+        * The use of a global state may affects the results of a lambda function. 
+
+        * In Python, we casually refer to anything after a `def` as a function. But technically, these are often `methods` or `procedures`, not `pure functions`.
+
+        * In computer programming, a pure function is a function that has the following properties: the function return values are identical for identical arguments. (no variation with local static variables, non-local variables, mutable reference arguments or input streams)
+
+    * ![spark_func](./images/spark_func2.png)
+
+* Every Spark function makes a copy of its input data and never changes the original parent data. Because Spark `doesn't change or mutate the input data`, it's known as **immutable**. This makes sense when you have a single function. But what happens when you have lots of functions in your program?
+
+    * In Spark, you do this by chaining together multiple functions that each accomplish a small chunk of the work.
+
+    * You'll often see a function that is composed of multiple sub-functions
+
+    * In order for this big function to be peer, each sub function also has to be peer.
+
+* Spark uses a functional programming concept called `lazy evaluation`. Before Spark does anything with the data in your program, it first built **step-by-step directions of what functions and data it will need**. These directions are like the recipe for your bread, and in Spark, this is called a `Directed Acyclic Graph (DAG)`. Once Spark builds the **DAG** from your code, it checks if it can procrastinate, waiting until the last possible moment to get the data.
+
+* ![spark_lazy.png](./images/spark_lazy.png)
+
+* Maps and Lambda Functions
+
+    * one of the most common functions in Spark is Maps. Maps simply make a copy of the original input data, and transform that copy according to whatever function you put inside the map. You can think about them as directions for the data telling each input how to get to the output.
+
+    * After some initialization to use Spark in our notebook, we:
+        * Convert our log of songs which is just a normal `Python list`, and to a `distributed dataset` that Spark can use. This uses the special `Spark context` object, which is normally abbreviated to `SC`. The Spark context has a method `parallelize` that takes a `Python object` and **distributes the object across the machines in your cluster**, so Spark can use its functional features on the dataset.
+        * Once we have this small dataset accessible to `Spark`, we want to do something with it. One example is to simply convert the song title to a lowercase which can be a common pre-processing step to standardize your data.
+        * Next, we'll use the Spark function `map` to `apply our converts` song to lowercase function on each song in our dataset.
+        * You'll notice that all of these steps appear to run instantly but remember, the **spark commands are using lazy evaluation**, they haven't really converted the songs to `lowercase` yet. So far, `Spark` is still procrastinating to transform the songs to lowercase, since you might have several other processing steps like removing punctuation, Spark wants to wait until the last minute to see if they can streamline its work, and combine these into a single stage.
+        * **If we want to force Spark to take some action on the data, we can use the `collect` Function which gathers the results from all of the machines in our cluster back to the machine running this notebook.**
+        * You can use anonymous functions in `Python`, use this special keyword `Lambda`, and then write the input of the function followed by a colon, and the expected output. You'll see anonymous functions all over the place in `Spark`. They're completely optional, you could just define functions if you prefer, but there are best-practice, and small examples like these.
+        * `RDD` in the output refers to resilient distributed dataset. RDDs are exactly what they say they are: fault-tolerant datasets distributed across a cluster. This is how Spark stores data. 
+
+    * According to legend, the inventor of Lambda Calculus, Alonzo Church, originally used the wedge symbol ∧ as part of his notation. But the typsetter transcribing his manuscript used λ instead. You can read more about it in the blog post.
+
+    * Lab: `2_spark_maps_and_lazy_evaluation.ipynb`
+
+* Data Formats
+
+    * The most common data formats you might come across are CSV, JSON, HTML, and XML.
+
+* Distributed Data Stores
+
+    * When we have so much data that we need distributed computing, the data itself often needs to be stored in a distributed way as well.
+
+    * `Distributed file systems`, storage services, and distributed databases store data in a `fault-tolerant` way. **So if a machine breaks or becomes unavailable, we don't lose the information we have collected.**
+
+    * `Hadoop` has a `Distributed File System, HDFS`, to store data. `HDFS` splits files into `64` or `128 megabyte blocks` and **replicates these blocks across the cluster**. **This way, the data is stored in a fault tolerant way and can be accessed in digestible chunks.**
+
+    * ![hdfs](./images/hdfs.png)
+
+    * If you don't want to maintain your own cluster, we can use many services such as the `Amazon Simple Storage Service or S3`. Companies using AWS or Amazon Web Services often use S3 to store the raw data they have collected.
+
+* The `SparkSession`
+
+    * The first component of each `Spark Program` is the `SparkContext`. The `SparkContext` is **the main entry point for Spark functionality and connects the cluster with the application.**
+
+    * To create a `SparkContext`, we first need a `SparkConf` object to specify some information about the application such as its name and the `master's nodes' IP address`. If we run Spark in local mode, we can just put the string `local` as master.
+
+    * To read `data frames`, we need to use `Spark SQL` equivalent, the `SparkSession`.
+
+    * Similarity to the `SparkConf`, we can specify some parameters to create a `SparkSession`.
+        * `getOrCreate()` for example, means that if you already have a `SparkSession` running, instead of creating a new one, **the old one will be returned and its parameters will be modified to the new configurations.**
+    
+    * ![spark_context](./images/spark_context.png)
+
+    * ![spark_context](./images/spark_context1.png)
+
+    * ![spark_session](./images/spark_session.png)
+
+* Reading and Writing into Spark Data Frames
+
+    * Create a Spark session with parameters.
+    * Print the schema with the `printSchema` method.
+    * Try the `describe` method to see what we can learn from our data.
+    * Use the `take` method to grab the first few records.
+
+    * Lab: `3_data_inputs_and_outputs.ipynb`
+
+* Imperative VS Declarative Programming
+
+    * We will cover two different ways to manipulate our data:
+
+        * **Imperative programming using `DataFrames` and Python**
+            * Imperative programming is concerned with the `How`
+            * Let's get in the car, drive two miles down the road to my favorite bakery, go into the shop, select the cake from the counter, purchase the cake, and then drive home.
+            * Focus on the exact steps, how we get to the result
+            * Data transformations with DataFrames
+        * **Declarative programming using SQL**
+            * Cares about the `What`
+            * concerned about the result we want to achieve
+            * abstraction layer of an imperative system
+            
+    * If you have used `pandas DataFrames` before, you are probably familiar with how to manipulate `DataFrames programmatically`. We can **chain methods such as filter and group by one after another, transforming the DataFrame further and further**. 
+
+    * ![imperative_vs_declarative](./images/imperative_vs_declarative.png)
+
+* Data Wrangling with Data Frames
+
+    * Call `describe` on the whole frame to see the values of each column
+    * Check how many rows we have in the data frame with the `count` method
+    * Use `dropDuplicates` to see each kind once
+
+    * General functions
+        * `select()`: returns a new DataFrame with the selected columns
+        * `filter()`: filters rows using the given condition
+        * `where()`: is just an alias for `filter()`
+        * `groupBy()`: groups the DataFrame using the specified columns, so we can run aggregation on them
+        * `sort()`: returns a new DataFrame sorted by the specified column(s). By default the second parameter 'ascending' is True.
+        * `dropDuplicates()`: returns a new DataFrame with unique rows based on all or just a subset of columns
+        * `withColumn()`: returns a new DataFrame by adding a column or replacing the existing column that has the same name. The first parameter is the name of the new column, the second is an expression of how to compute it.
+
+    * Aggregate functions
+
+        * `Spark SQL` provides built-in methods for the most common aggregations such as `count(), countDistinct(), avg(), max(), min(), etc`. in the `pyspark.sql.functions` module. These methods are not the same as the built-in methods in the `Python Standard Library`, where we can find `min()` for example as well, hence you need to be careful not to use them interchangeably.
+
+        * In many cases, there are multiple ways to express the same aggregations. For example, if we would like to compute one type of aggregate for one or more columns of the DataFrame we can just simply chain the `aggregate` method after a `groupBy()`. If we would like to use different functions on different columns, `agg()` comes in handy. For example `agg({"salary": "avg", "age": "max"})` computes the average salary and maximum age.
+
+    * **User defined functions (UDF)**
+
+        * In `Spark SQL` we can define our own functions with the `udf` method from the `pyspark.sql.functions` module. The default type of the returned variable for `UDFs` is `string`. If we would like to return an other type we need to explicitly do so by using the different types from the `pyspark.sql.types module`.
+
+    * Window functions
+
+        * Window functions are a way of **combining the values of ranges of rows in a `DataFrame`**. When defining the window we can choose how to `sort and group` (with the `partitionBy` method) the rows and how wide of a window we'd like to use (described by `rangeBetween or rowsBetween`).
+
+        * Lab: `4_data_wrangling.ipynb`
+
+        * Lab exercise: `6_dataframe_quiz_solution.ipynb`
+
+* **Spark SQL**
+
+    * ![spark_sql](./images/spark_sql.png)
+
+    * Spark automatically optimizes your SQL code, to speed up the process of manipulating and retrieving data.
+
+    * https://spark.apache.org/docs/latest/api/sql/index.html
+
+    * https://spark.apache.org/docs/latest/sql-getting-started.html
+
+    * Lab: `7_data_wrangling-sql.ipynb`
+
+    * Lab exercise: `9_spark_sql_quiz_solution.ipynb`
+
+    * Both `Spark SQL and Spark Data Frames` are part of the `Spark SQL library`. Hence, they both use the `Spark SQL Catalyst Optimizer` to optimize queries. 
+
+    * You might prefer SQL over data frames because the syntax is clearer especially for teams already experienced in `SQL`.
+
+    * Spark data frames give you more control. You can break down your queries into smaller steps, which can make debugging easier. You can also [cache](https://unraveldata.com/to-cache-or-not-to-cache/) intermediate results or [repartition](https://hackernoon.com/managing-spark-partitions-with-coalesce-and-repartition-4050c57ad5c4) intermediate results.
+
+* **Resilient Distributed Datasets (RDDs)**
+
+    * ![spark_optm](./images/spark_optm.png)
+
+    * ![spark_optm](./images/spark_optm1.png)
+
+    * `RDD`s are a **low-level abstraction of the data**. In the first version of `Spark`, you worked directly with `RDDs`. You can think of RDDs as long lists distributed across various machines. You can still use RDDs as part of your Spark code although `data frames and SQL are easier`. This course won't go into the details of RDD syntax, but you can find some further explanation of the difference between RDDs and DataFrames in Databricks' [A Tale of Three Apache Spark APIs: RDDs, DataFrames, and Datasets](https://databricks.com/blog/2016/07/14/a-tale-of-three-apache-spark-apis-rdds-dataframes-and-datasets.html) blog post.
+
+    * Starting in Spark 2.0, Dataset takes on two distinct APIs characteristics: a strongly-typed API and an untyped API, as shown in the table below. Conceptually, consider DataFrame as an alias for a collection of generic objects Dataset[Row], where a Row is a generic untyped JVM object. Dataset, by contrast, is a collection of strongly-typed JVM objects, dictated by a case class you define in Scala or a class in Java.
+
+    * Consider `static-typing` and runtime safety as a spectrum, with SQL least restrictive to `Dataset` most restrictive. For instance, in your `Spark SQL` string queries, you won’t know a syntax error until runtime (which could be costly), whereas in `DataFrames and Datasets you can catch errors at compile time` (which saves developer-time and costs). That is, if you invoke a function in DataFrame that is not part of the API, the compiler will catch it. However, it won’t detect a non-existing column name until runtime.
+
+    * At the far end of the spectrum is `Dataset`, most restrictive. Since Dataset APIs are all expressed as lambda functions and JVM typed objects, any mismatch of typed-parameters will be detected at compile time. Also, your analysis error can be detected at compile time too, when using Datasets, hence saving developer-time and costs.
+
+    * ![sql-vs-dataframes-vs-datasets-type-safety-spectrum](./images/sql-vs-dataframes-vs-datasets-type-safety-spectrum.png)
+
+### Setting up Spark Clusters with AWS
+
