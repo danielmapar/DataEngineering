@@ -1219,3 +1219,126 @@
 
 ### Setting up Spark Clusters with AWS
 
+* `Local mode`: You are running a Spark program on your laptop like a single machine.
+* `Standalone mode`: You are defining `Spark Primary` and `Secondary` to work on your (virtual) machine. You can do this on `EMR` or your machine. `Standalone mode` uses a resource manager like `YARN` or `Mesos`.
+
+* `Local mode` means `Spark` is running on your local machine. `Standalone mode` is distributed and uses resource management like `Yarn` or `Mesos`.
+
+* ![spark_cluster](./images/spark_cluster.png)
+
+* ![ec2_vs_emr](./images/ec2_vs_emr.png)
+
+* Circling Back on HDFS
+
+    * Since Spark does not have its own distributed storage system, it leverages using `HDFS` or `AWS S3`, or any other distributed storage. Primarily in this course, we will be using `AWS S3`, but let’s review the advantages of using `HDFS` over `AWS S3`.
+
+* What is HDFS?
+
+    * `HDFS (Hadoop Distributed File System)` is the file system in the Hadoop ecosystem. `Hadoop` and `Spark` are two frameworks providing tools for carrying out big-data related tasks. While `Spark` is faster than `Hadoop`, `Spark` has one drawback. It lacks a distributed storage system. In other words, `Spark` lacks a system to organize, store and process data files.
+
+* MapReduce System
+
+    * `HDFS` uses `MapReduce` system as a resource manager to allow the distribution of the files across the hard drives within the cluster. Think of it as the `MapReduce System` storing the data back on the hard drives after completing all the tasks.
+
+    * `Spark`, on the other hand, runs the operations and holds the data in the `RAM` memory rather than the `hard drives` used by `HDFS`. Since `Spark` lacks a file distribution system to organize, store and process data files, `Spark` tools are often installed on `Hadoop` because `Spark` can then use the `Hadoop Distributed File System (HDFS)`.
+
+* Why Would You Use an `EMR Cluster`?
+
+    * Since a `Spark` cluster includes multiple machines, in order to use Spark code on each machine, we would need to download and install Spark and its dependencies. This is a manual process. AWS EMR is a service that negates the need for you, the user, to go through the manual process of installing Spark and its dependencies for each machine.
+
+* Setting up EMR Clusters on AWS
+
+    * The next part will demonstrate how to create an EMR Cluster from the AWS Console, and from the AWS CLI. Review the [AWS documentation to set up an EMR Cluster](https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-gs.html#emr-getting-started-plan-and-configure).
+
+* `EMRFS` to store data in an S3 bucket. `EMRFS` is an implementation of the `Hadoop file system` that lets you read and write regular files to `Amazon S3`.
+
+
+* ```bash   
+    aws emr create-cluster --name <cluster_name> \
+    --use-default-roles --release-label emr-5.28.0  \
+    --instance-count 3 --applications Name=Spark Name=Zeppelin  \
+    --bootstrap-actions Path="s3://bootstrap.sh" \
+    --ec2-attributes KeyName=<Key-pair-file-name>, SubnetId=<subnet-Id> \
+    --instance-type m5.xlarge --log-uri s3:///emrlogs/
+    ```
+
+    * `--name` : You can give any name of your choice. This will show up on your AWS EMR UI.
+    * `--release-label`: This is the version of EMR you’d like to use.
+    * `--instance-count`: Annotates instance count. One is for the primary, and the rest are for the secondary. For example, if --instance-count is given 4, then 1 instance will be reserved for primary, then 3 will be reserved for secondary instances.
+    * `--applications`: List of applications you want to pre-install on your EMR at the launch time
+    * `--bootstrap-actions`: The Path attribute provides the path to a file (residing in S3 or locally) that contains a script that runs during a bootstrap action. The script may set environmental variables in all the instances of the cluster. This file must be accessible to each instance in the cluster.
+    * `--ec2-attributes`: The `KeyName` field specifies your `key-pair` file name, for example, if it is MyKey.pem, just specify MyKey for this field. There is one more field that you should specify, SubnetId.
+        * The aws documentation says that the cluster must be launched within an `EC2-VPC`. Therefore, you need to provide the `VPC subnet Id` in which to create the cluster. If you do not specify this value, the cluster is launched in the normal AWS cloud, outside of any `VPC`. Go to the VPC service in the web console to copy any of the subnet IDs within the default VPC. If you do not see a default VPC in your account, use a simple command to create a default VPC:
+
+        * `aws ec2 create-default-vpc --profile <profile-name>`
+
+            * `--instance-type`: Specify the type of instances you want to use. Detailed list can be accessed here, but find the one that can fit your data and your budget.
+            * `--log-uri`: S3 location to store your EMR logs in. This log can store EMR metrics and also the metrics/logs for submission of your code.
+
+        * Use the subnet ID in `--ec2-attributes KeyName=<Key-pair-file-name>, SubnetId=<subnet-Id>`
+    
+    * ![emr_dashboard](./images/emr_dashboard.png)
+
+* Accessing [`Spark UI`](https://docs.aws.amazon.com/emr/latest/ManagementGuide/app-history-spark-UI.html)
+    * Set Up an SSH Tunnel to the Master Node Using Dynamic Port Forwarding: `ssh -i AWS_EC2_Demo.pem -N -D 8157 hadoop@ec2-3-139-93-181.us-east-2.compute.amazonaws.com`
+        * In the command above, the `-D` option is used for specifying a local port (`8157`) to forward data to all remote ports on the master node's web server.
+    
+    * Configure Proxy Settings in your Local Computer
+        * Chrome - SwitchyOmega or FoxyProxy
+        * Firefox - FoxyProxy
+
+        * Save the following profile script in your new profile: 
+        * ```bash
+            function FindProxyForURL(url, host) {
+            if (shExpMatch(url, "*ec2*.amazonaws.com*")) return 'SOCKS5 localhost:8157';
+            if (shExpMatch(url, "*ec2*.compute*")) return 'SOCKS5 localhost:8157';
+            if (shExpMatch(url, "http://10.*")) return 'SOCKS5 localhost:8157';
+            if (shExpMatch(url, "*10*.compute*")) return 'SOCKS5 localhost:8157';
+            if (shExpMatch(url, "*10*.amazonaws.com*")) return 'SOCKS5 localhost:8157';
+            if (shExpMatch(url, "*.compute.internal*")) return 'SOCKS5 localhost:8157';
+            if (shExpMatch(url, "*ec2.internal*")) return 'SOCKS5 localhost:8157';
+            return 'DIRECT';
+            }
+            ```
+
+        * Once, you have configured the proxy, you can access the Spark UI using the command (replace the master node public DNS for you): `http://ec2-3-139-93-181.us-east-2.compute.amazonaws.com:18080/`
+
+    * EMR vs Databricks: https://medium.com/insiderengineering/benchmarking-amazon-emr-vs-databricks-4c2f7d209d3d
+        * Lean about Delta lake format: https://www.youtube.com/watch?v=BMO90DI82Dc
+
+* Jupyter / Zeppelin Notebook
+
+    * There are a couple of options for which notebook to use. We can use a Jupyter Notebook, or use a Zeppelin notebook. If you are already familiar with Jupyter Notebooks, continue using them.
+
+    * Advantages of using Zeppelin Notebook
+
+        * While the use of `Jupyter Notebook` is common across the industry, you can explore using `Zeppelin` notebooks. `Zeppelin` notebooks have been available since `EMR 5.x` versions, and **they have direct access to Spark Context**, such as a local `spark-shell`. For example, if you type `sc`, you’ll be able to get `Spark Context` within `Zeppelin notebooks`.
+
+        * `Zeppelin` is very similar to `Jupyter Notebook`, but if you want to use other languages like `Scala or SQL`, on top of using `Python`, you can use `Zeppelin` instead.
+
+* Spark Scripts
+
+    * Jupyter notebooks are great for prototyping as well as exploring and visualizing your data. However, Jupyter notebooks aren't the best tool for automating your workflow, that's where Python scripts come into play.
+
+    * Imagine you work for a social media company that receives a constant stream of text, image, and video data from your users. To keep up with your users, you want your Spark jobs to run automatically at specific intervals, perhaps once every hour. These Spark jobs give your entire team the latest information on their users and will probably become so useful to your team that they will start to request more and more Spark jobs. You won't want to manually run a growing collection of notebooks, you'll want automated scripts that you can set and forget. Let's learn how to rework your Jupyter notebooks into Python scripts and submit these scripts to your cluster from the command line.
+
+    * Execute the file using `cd /usr/bin && spark-submit --master yarn <filepath>.py`.
+        * `which spark-submit`
+
+
+* Using S3 Buckets to Store Data
+    * S3 stores an object, and when you identify an object, you need to specify a bucket, and key to identify the object. For example,
+
+        * `df = spark.read.load(“s3://my_bucket/path/to/file/file.csv”)`
+
+* Differences between HDFS and AWS S3
+
+    * Since `Spark` does not have its own distributed storage system, it leverages `HDFS or AWS S3`, or any other distributed storage. Primarily in this course, we will be using `AWS S3`, but let’s review the advantages of using `HDFS over AWS S3`.
+
+        * `AWS S3` is an object storage system that stores the data using key value pairs, and `HDFS` is an actual distributed file system that `guarantees fault tolerance`. `HDFS` achieves fault tolerance by **duplicating the same files at 3 different nodes across the cluster by default** (it can be configured to reduce or increase this duplication).
+        * `HDFS` has traditionally been installed in `on-premise` systems which had engineers on-site to maintain and troubleshoot the `Hadoop Ecosystem`, costing more than storing data in the cloud. Due to the **flexibility of location and reduced cost of maintenance, cloud solutions have been more popular**. With the extensive services AWS provides, `S3` has been a more popular choice than `HDFS`.
+        * Since `AWS S3 is a binary object store`, it can store all kinds of formats, even `images and videos`. `HDFS` **strictly requires a file format** - the popular choices are `avro` and `parquet`, which have relatively `high compression` rates making it useful for storing large datasets.
+            * **HDFS works with data files that are splittable.**  
+
+            * `hadoop fs mkdir`: makes a directory
+            * `hdfs dfs -copyToLocal`: copies files to local (like your laptop)
