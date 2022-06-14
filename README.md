@@ -1488,14 +1488,70 @@
 
         * Mode details [here](https://dzone.com/articles/improving-the-performance-of-your-spark-job-on-ske)
 
+        * More examples [here](https://sparkbyexamples.com/spark/spark-partitioning-understanding/)
+
         * Partition wisely
             * So how do you avoid skewed data and shuffle blocks? Partitioning wisely. It’s critical to partition wisely in order to manage memory pressure as well as to ensure complete resource utilization on executor’s nodes. You must always know your data — size, types, and how it’s distributed. A couple of best practices to remember are:
 
                 * Understanding and selecting the right operators for actions like reduceByKey or aggregateByKey so that your driver is not put under pressure and the tasks are properly executed on executors.
                 * If your data arrives in a few large unsplittable files, the partitioning dictated by the InputFormat might place large numbers of records in each partition, while not generating enough partitions to take advantage of all the available cores. In this case, invoking repartition with a high number of partitions after loading the data will allow the operations that come after it to leverage more of the cluster’s CPU.
                 * Also, if data is skewed then repartitioning using an appropriate key which can spread the load evenly is also recommended.
+
             * **By default, it is set to the total number of cores on all the executor nodes. Partitions in Spark do not span multiple machines. Tuples in the same partition are guaranteed to be on the same machine. Spark assigns one task per partition and each worker can process one task at a time.**
-    
+
+            * ```python
+                import pandas as pd
+                import numpy as np
+
+                length = 100
+                names = np.random.choice(['Bob', 'James', 'Marek', 'Johannes', None], length)
+                amounts = np.random.randint(0, 1000000, length)
+                country = np.random.choice(
+                    ['United Kingdom', 'Poland', 'USA', 'Germany', None], 
+                    length
+                )
+                df = pd.DataFrame({'name': names, 'amount': amounts, 'country': country})
+
+                transactions = spark.createDataFrame(df)
+                print('Number of partitions: {}'.format(transactions.rdd.getNumPartitions()))
+                print('Partitioner: {}'.format(transactions.rdd.partitioner))
+                print('Partitions structure: {}'.format(transactions.rdd.glom().collect()))
+                ```
+            
+            * Looking at the partition structure, we can see that our data is divided into four partitions (because my laptop has 4 cores and the spark created 4 executables in standalone mode), and if we apply the transformations on this data frame, the work of each partition will be done in a separate thread (and in my case on each individual processor core).
+
+            * The most important reason is performance. By having all the data needed to calculate on a single node, we reduce the overhead on the shuffle (the need for serialization and network traffic).
+
+            * The second reason is the cost reduction — better utilization of the cluster will help to reduce idle resources.
+
+            * Repartitioning
+                * Under repartitioning meant the operation to **reduce or increase the number of partitions in which the data in the cluster will be split. This process involves a full shuffle. Consequently, it is clear that repartitioning is an expensive process. In a typical scenario, most of the data should be serialized, moved, and deserialized.**
+
+                * In addition to specifying the number of partitions directly, you can pass in the name of the column by which you want to partition the data.
+
+                    * ```python
+                        repartitioned = transactions.repartition('country')
+                        print('Number of partitions: {}'.format(repartitidoned.rdd.getNumPartitions()))
+                        print('Partitions structure: {}'.format(repartitioned.rdd.glom().collect()))
+                        ```
+
+                    * We see that the number of partitions has become 200 and many of these partitions are completely empty. We will discuss this point a little further in the article.
+
+            * Coalesce
+                * This operation reduces the number of partitions and **avoids a full shuffle**. The executor can safely leave data on a minimum number of partitions, moving data only from redundant nodes. Therefore, it is better to use coalesce than repartition if you need to reduce the number of partitions.
+            
+            * Partitioning on input stage
+
+                * Let's start by determining the number of partitions based on the size of the input dataset.
+
+                * When Spark reads a file from HDFS, it creates a single partition for a single input split. Input split is set by the Hadoop InputFormat used to read this file. If you have a `30GB` uncompressed text file stored on HDFS, then with the default HDFS block size setting (128MB) and default `spark.files.maxPartitionBytes(128MB)` it would be stored in 240 blocks, which means that the dataframe you read from this file would have **240 partitions**.
+
+                * This is equal to the Spark default parallelism (`spark.default.parallelism`) value.
+
+                * **If your data is not explodable then Spark will use the default number of partitions. When a job starts the number of partitions is equal to the total number of cores on all executor nodes.**
+
+            * Mode details [here](https://luminousmen.com/post/spark-partitions)
+
     * Solutions
         * 1. Use Alternate Columns that are more normally distributed:
             * E.g., Instead of the year column, we can use Issue_Date column that isn’t skewed.
