@@ -1609,11 +1609,6 @@
 
         * When it comes to joins there is more than one strategy to choose from. `If one of your data frames are small consider using broadcast hash join instead of a hash join.`
 
+### Introduction to Data Lakes
 
-
-
-
-
-
-
-
+* 
