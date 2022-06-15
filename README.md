@@ -1697,7 +1697,79 @@
         * ![data_lake_evolution](./images/data_lake_evolution9.png)
 
 
-* Lab: `Exercise 1 - Schema On Read - Solution.ipynb`
+* Lab 1: `Exercise 1 - Schema On Read - Solution.ipynb`
 
+* Lab 2: `Exercise 2 - Advanced Analytics NLP - Solution.ipynb`
 
+* Implementing Data Lakes
+    * Data lakes are empowered by big data technologies. Initially, big data technologies used the Hadoop ecosystem.
 
+    * Over time, big data tools changed and Hadoop is not the only way to implement big data architectures. In the next section, we will explain the different ways of implementing a data lake on Amazon Web Services.
+
+    * ![data_lake_evolution](./images/data_lake_evolution10.png)
+
+* Data Lake Concepts
+
+    * All data is welcomed, **unstructured** and **semi-structured**
+
+    * You don't do Extract Transform and Load (ETL). You do **ELT**
+        * Data is stored in its original format, without transformation, and is **transformed later**.
+    
+    * distributed data storage out of the box.
+        * `Spark` and `RDD` are distributed data storage
+
+    * ![data_lake_evolution](./images/data_lake_evolution11.png)
+
+    * ![data_lake_evolution](./images/data_lake_evolution12.png)
+
+    * ![data_lake_evolution](./images/data_lake_evolution13.png)
+    
+    * ![data_lake_evolution](./images/data_lake_evolution14.png)
+    
+    * ![data_lake_evolution](./images/data_lake_evolution15.png)
+
+* Data Lakes VS Data Warehouses
+
+    * ![data_lake_evolution](./images/data_lake_evolution16.png)
+
+    * More [here](https://itrexgroup.com/blog/data-warehouse-vs-data-lake-vs-data-lakehouse-differences-use-cases-tips/#)
+        * Data Warehouse vs Data Lake vs Data Lakehouse
+
+* Data Lake Options on AWS
+    * How can you implement a data lake using Amazon Web Services?
+
+    * What are the storage options?
+        * Storage with `HDFS`
+        * Storage with `S3`
+    
+    * What are the processing option?
+        * Processing with `Spark`
+        * Processing with `Hive`
+        * Processing with `Flink`
+        * `Serverless` processing
+
+    * Choose unmanaged or managed vendor solutions:
+
+        * AWS Elastic MapReduce (EMR) is an AWS managed solution. `EMR` uses `HDFS` or `S3 with Spark` in a cluster, and that cluster is elastic. You can shrink or grow it.
+
+        * Other vendors like `Cloudera`, `Hortonworks`, and `Databricks` will give you also solutions to work with on `EC2 machines`.
+
+    * ![data_lake_evolution](./images/data_lake_evolution17.png)
+
+    * ![data_lake_evolution](./images/data_lake_evolution18.png)
+    
+    * ![data_lake_evolution](./images/data_lake_evolution19.png)
+        * Lab: `Exercise 3 - Data Lake on S3 - Solution.ipynb`
+
+    * ![data_lake_evolution](./images/data_lake_evolution20.png)
+        * `AWS Glue` to crawl `S3` files and make Athena `Databases`
+            * `AWS Lakeformation` for authorization and row / column control
+        
+        * ![data_lake_evolution](./images/data_lake_evolution21.png)
+
+* Data Lake Issues
+    * Abusing the amount of data in the data lake.
+    * **Data governance issues**
+    * **Should the data lake replace the data warehouse? Should they work together?**
+        * Data Lakehouse solution (e.g. Delta Lake)
+        * ![data_lake_evolution](./images/data_lake_evolution22.png)
