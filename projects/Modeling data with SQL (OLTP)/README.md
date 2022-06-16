@@ -4,7 +4,6 @@
 
 * This project aims to `ETL` data from a fictitious music app called **Sparkify**, this applications is similar to Spotify / Apple Music. The extracted data from this app enables us to query informations about `users`, `artists`, `songs` related to those `artists` and `listened songs`. On that note, this dataset could be utilized by data scientists to understand `users` listening `patterns`, `users` preferred `songs`, `users` preferred `artists` and much more. Potentially we could use this data to train a Machine Learning model to suggest `songs` to `users`.
 
-
 ## How to run the project
 
 * Make sure to first install [Anaconda](https://www.anaconda.com/) and [PostgreSQL](https://www.postgresql.org/)
