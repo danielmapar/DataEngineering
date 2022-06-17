@@ -1773,3 +1773,27 @@
     * **Should the data lake replace the data warehouse? Should they work together?**
         * Data Lakehouse solution (e.g. Delta Lake)
         * ![data_lake_evolution](./images/data_lake_evolution22.png)
+
+## Automate Data Pipelines
+
+### Introduction to Automating Data Pipelines
+
+* What is a Data Pipeline?
+
+    * A **data pipeline** describes, in code, a series of sequential data processing steps. Depending on the data requirements for each step, some steps may occur in parallel. Data pipelines also typically occur on a **schedule**. **Extract, transform and load (ETL), or extract, load, and transform (ELT),** are common patterns found in data pipelines, but not strictly required. Some data pipelines perform only a subset of **ETL** or **ELT**.
+
+    * Examples of data pipelines:
+
+        * Personalized emails that are triggered after a data pipeline executed.
+        * Companies commonly use data pipelines to orchestrate the analysis that determines pricing. For example, a rideshare app where you were offered real-time pricing.
+        * A Bikeshare company, that wants to figure out where their busiest locations are. They might use this data to determine where to build additional locations, or simply to add more bikes. A data pipeline to accomplish this task would likely first load application event data from a source such as S3 or kafka. Second, we might take that data and then load it into an analytic warehouse such as RedShift. Then third, perform data transformations that identify high-traffic bike docks.
+    
+    * ![pipeline](./images/pipeline.png)
+
+    * Extract Transform Load (ETL) and Extract Load Transform (ELT):
+
+        * "ETL is normally a continuous, ongoing process with a well-defined workflow. ETL first extracts data from homogeneous or heterogeneous data sources. Then, data is cleansed, enriched, transformed, and stored either back in the lake or in a data warehouse.
+
+        * "ELT (Extract, Load, Transform) is a variant of ETL wherein the extracted data is first loaded into the target system. Transformations are performed after the data is loaded into the data warehouse. **ELT typically works well when the target system is powerful enough to handle transformations.** Analytical databases like Amazon Redshift and Google BigQuery." Source: Xplenty.com
+
+### Data Pipelines
