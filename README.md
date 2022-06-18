@@ -1797,3 +1797,451 @@
         * "ELT (Extract, Load, Transform) is a variant of ETL wherein the extracted data is first loaded into the target system. Transformations are performed after the data is loaded into the data warehouse. **ELT typically works well when the target system is powerful enough to handle transformations.** Analytical databases like Amazon Redshift and Google BigQuery." Source: Xplenty.com
 
 ### Data Pipelines
+
+* Definitions
+    * **Directed Acyclic Graphs (DAGs)**: DAGs are a special subset of graphs in which the edges between nodes have a specific direction, and no cycles exist. When we say “no cycles exist” what we mean is the nodes can't create a path back to themselves.
+    * **Nodes**: A step in the data pipeline process.
+    * **Edges**: The dependencies or relationships other between nodes.
+
+    * ![dag](./images/dag.png)
+
+* Common Questions
+
+    * **Are there real world cases where a data pipeline is not DAG?**
+        * It is possible to model a data pipeline that is not a `DAG`, meaning that it **contains a cycle within the process**. However, the vast majority of use cases for data pipelines can be described as a directed acyclic graph (DAG). This makes the code more understandable and maintainable.
+
+    * **Can we have two different pipelines for the same data and can we merge them back together?**
+        * Yes. It's not uncommon for a data pipeline to take the same dataset, perform two different processes to analyze it, then merge the results of those two processes back together.
+
+* Data Validation
+
+    * Data Validation is the process of ensuring that data is present, correct & meaningful. Ensuring the quality of your data through automated validation checks is a critical step in building data pipelines at any organization.
+
+    * ![data_validation](./images/data_validation.png)
+
+* Apache Airflow
+
+    * "Airflow is a platform to programmatically author, schedule and monitor workflows. Use airflow to author **workflows as directed acyclic graphs (DAGs) of tasks**. The airflow scheduler executes your tasks on an array of workers while following the specified dependencies. Rich command line utilities make performing complex surgeries on `DAG`s a snap. The rich user interface makes it easy to visualize pipelines running in production, monitor progress, and troubleshoot issues when needed. When workflows are defined as code, they become more maintainable, versionable, testable, and collaborative."
+
+    * ![airflow](./images/airflow.png)
+
+    * ![airflow](./images/airflow2.png)
+
+    * ![airflow](./images/airflow3.png)
+
+* Tips for Using Airflow's Web Server
+    * Use Google Chrome to view the Web Server. Airflow sometimes has issues rendering correctly in Firefox or other browers.
+
+    * Make sure you toggle the `DAG` to `On` before you try an run it. Otherwise you'll see your DAG running, but it won't ever finish.
+
+    * ![airflow_code](./images/airflow_code.png)
+
+    * ![airflow_code](./images/airflow_code2.png)
+
+    * ![airflow_code](./images/airflow_code3.png)
+
+    * ![airflow_code](./images/airflow_code4.png)
+
+    * ```python
+        # Instructions
+        # Define a function that uses the python logger to log a function. Then finish filling in the details of the DAG down below. Once you’ve done that, run "/opt/airflow/start.sh" command to start the web server. Once the Airflow web server is ready,  open the Airflow UI using the "Access Airflow" button. Turn your DAG “On”, and then Run your DAG. If you get stuck, you can take a look at the solution file in the workspace/airflow/dags folder in the workspace and the video walkthrough on the next page.
+
+        import datetime
+        import logging
+
+        from airflow import DAG
+        from airflow.operators.python_operator import PythonOperator
+
+
+        #
+        # TODO: Define a function for the PythonOperator to call and have it log something
+        #
+        def my_function():
+            logging.info("test daniel")
+
+
+        dag = DAG(
+                'lesson1.exercise1',
+                start_date=datetime.datetime.now())
+
+        #
+        # TODO: Uncomment the operator below and replace the arguments labeled <REPLACE> below
+        #
+
+        greet_task = PythonOperator(
+            task_id="test-daniel",
+            python_callable=my_function,
+            dag=dag
+        )
+        ```
+
+* How Airflow Works
+
+    * ![airflow_internals](./images/airflow_internals.png)
+
+    * `Scheduler` orchestrates the execution of jobs on a trigger or schedule. The Scheduler chooses how to prioritize the running and execution of tasks within the system. You can learn more about the Scheduler from the official [Apache Airflow documentation](https://airflow.apache.org/docs/apache-airflow/stable/concepts/scheduler.html).
+    * `Work Queue` is used by the scheduler in most Airflow installations to deliver tasks that need to be run to the **Workers**.
+    * `Worker` processes execute the operations defined in each **DAG**. In most Airflow installations, workers pull from the **work queue** when it is ready to process a task. When the worker completes the execution of the task, it will **attempt to process more work from the work queue** until there is no further work remaining. When work in the queue arrives, the worker will begin to process it.
+    * `Database` saves **credentials, connections, history, and configuration**. The database, often referred to as the **metadata database**, also stores the **state of all tasks in the system**. Airflow components interact with the database with the **Python ORM, SQLAlchemy**.
+    * `Web Interface` provides a control dashboard for users and maintainers. Throughout this course you will see how the web interface allows users to perform tasks such as **stopping and starting DAGs, retrying failed tasks, configuring credentials,** The web interface is built using the Flask web-development microframework.
+
+    * ![airflow_internals](./images/airflow_internals2.png)
+
+    * Order of Operations For an Airflow DAG
+        * The `Airflow Scheduler` starts `DAGs` based on `time or external triggers`.
+        * Once a `DAG` is started, the `Scheduler` looks at the steps within the `DAG` and determines which steps can run by looking at their `dependencies`.
+        * The `Scheduler` places `runnable steps` in the queue.
+        * `Workers` pick up those tasks and run them.
+        * Once the worker has finished running the step, **the final status of the task is recorded and additional tasks are placed by the scheduler until all tasks are complete.**
+        * Once all tasks have been completed, the `DAG` is complete.
+
+    * ![airflow_code](./images/airflow_code5.png)
+
+* Creating a DAG
+
+    * Creating a DAG is easy. Give it a name, a description, a start date, and an interval.
+
+    * ```python
+        from airflow import DAG
+
+        divvy_dag = DAG(
+            'divvy',
+            description='Analyzes Divvy Bikeshare Data',
+            start_date=datetime(2019, 2, 4),
+            schedule_interval='@daily')
+        ```
+
+* Creating Operators to Perform Tasks
+    * **Operators** define the **atomic steps of work** that make up a `DAG`. Instantiated operators are referred to as **Tasks**.
+
+    * ```python
+        from airflow import DAG
+        from airflow.operators.python_operator import PythonOperator
+
+        def hello_world():
+            print("Hello World")
+
+        divvy_dag = DAG(...)
+        task = PythonOperator(
+            task_id=’hello_world’,
+            python_callable=hello_world,
+            dag=divvy_dag)
+        ```
+* Schedules
+    * **Schedules** are optional, and may be defined with cron strings or Airflow Presets. Airflow provides the following presets:
+
+        * `@once` - Run a DAG once and then never again
+        * `@hourly` - Run the DAG every hour
+        * `@daily` - Run the DAG every day
+        * `@weekly` - Run the DAG every week
+        * `@monthly` - Run the DAG every month
+        * `@yearly`- Run the DAG every year
+        * `None` - Only run the DAG when the user initiates it
+    
+    * **Start Date**: If your start date is in the past, Airflow will run your `DAG` as many times as there are schedule intervals between that `start date` and the `current date`. (backfill)
+
+    * **End Date**: Unless you specify an optional end date, Airflow will continue to run your `DAG`s until `you disable or delete the DAG`.
+
+* ![airflow_code](./images/airflow_code6.png)
+
+* ```python
+        # Instructions
+        # Complete the TODOs in this DAG so that it runs once a day. Once you’ve done that, run "/opt/airflow/start.sh" command to start the web server. Once the Airflow web server is ready,  open the Airflow UI using the "Access Airflow" button. Turn the previous exercise off, then turn this exercise on. Wait a moment and refresh the UI to see Airflow automatically run your DAG. If you get stuck, you can take a look at the solution file in the workspace/airflow/dags folder in the workspace and the video walkthrough on the next page.
+
+        import datetime
+        import logging
+
+        from airflow import DAG
+        from airflow.operators.python_operator import PythonOperator
+
+
+        def hello_world():
+            logging.info("Hello World")
+
+        #
+        # TODO: Add a daily `schedule_interval` argument to the following DAG
+        #
+        dag = DAG(
+                "lesson1.exercise2",
+                start_date=datetime.datetime.now() - datetime.timedelta(days=2),
+                schedule_interval='@daily'
+        )
+
+        task = PythonOperator(
+                task_id="hello_world_task",
+                python_callable=hello_world,
+                dag=dag)
+    ```
+
+* Operators and Tasks
+
+    * `Operators` define the **atomic steps of work** that make up a `DAG`. Airflow comes with many Operators that can perform common operations. Here are a handful of common ones:
+
+        * `PythonOperator`
+        * `PostgresOperator`
+        * `RedshiftToS3Operator`
+        * `S3ToRedshiftOperator`
+        * `BashOperator`
+        * `SimpleHttpOperator`
+        * `Sensor`
+        * etc..
+    
+    * Task Dependencies
+        * In Airflow DAGs:
+            * Nodes = Tasks
+            * Edges = Ordering and dependencies between tasks
+        
+        * Task dependencies can be described programmatically in Airflow using `>>` and `<<`
+            * `a >> b` means `a` comes before `b`
+            * `a << b` means `a` comes after `b`
+
+    * ```python
+        hello_world_task = PythonOperator(task_id=’hello_world’, ...)
+        goodbye_world_task = PythonOperator(task_id=’goodbye_world’, ...)
+        ...
+        # Use >> to denote that goodbye_world_task depends on hello_world_task
+        hello_world_task >> goodbye_world_task
+        ```
+    
+    * Tasks dependencies can also be set with “set_downstream” and “set_upstream”
+
+        * `a.set_downstream(b)` means `a` comes before `b`
+        * `a.set_upstream(b)` means `a` comes after `b`
+    
+    * ```python
+        hello_world_task = PythonOperator(task_id=’hello_world’, ...)
+        goodbye_world_task = PythonOperator(task_id=’goodbye_world’, ...)
+        ...
+        hello_world_task.set_downstream(goodbye_world_task)
+        ```
+    
+    * ```python
+        import datetime
+        import logging
+
+        from airflow import DAG
+        from airflow.operators.python_operator import PythonOperator
+
+
+        def hello_world():
+            logging.info("Hello World")
+
+
+        def addition():
+            logging.info(f"2 + 2 = {2+2}")
+
+
+        def subtraction():
+            logging.info(f"6 -2 = {6-2}")
+
+
+        def division():
+            logging.info(f"10 / 2 = {int(10/2)}")
+
+
+        dag = DAG(
+            "lesson1.solution3",
+            schedule_interval='@hourly',
+            start_date=datetime.datetime.now() - datetime.timedelta(days=1))
+
+        hello_world_task = PythonOperator(
+            task_id="hello_world",
+            python_callable=hello_world,
+            dag=dag)
+
+        addition_task = PythonOperator(
+            task_id="addition",
+            python_callable=addition,
+            dag=dag)
+
+        subtraction_task = PythonOperator(
+            task_id="subtraction",
+            python_callable=subtraction,
+            dag=dag)
+
+        division_task = PythonOperator(
+            task_id="division",
+            python_callable=division,
+            dag=dag)
+
+        # Configure Task Dependencies
+        hello_world_task >> addition_task
+        hello_world_task >> subtraction_task
+
+        subtraction_task >> division_task
+        addition_task >> division_task
+        ```
+
+* Connection via Airflow Hooks
+
+    * Connections can be accessed in code via `hooks`. `Hooks` provide a reusable interface to external systems and databases. With `hooks`, you don’t have to worry about how and where to store these **connection strings and secrets in your code**.
+
+    * ```python
+        from airflow import DAG
+        from airflow.hooks.postgres_hook import PostgresHook
+        from airflow.operators.python_operator import PythonOperator
+
+        def load():
+        # Create a PostgresHook option using the `demo` connection
+            db_hook = PostgresHook("demo")
+            df = db_hook.get_pandas_df('SELECT * FROM rides')
+            print(f'Successfully used PostgresHook to return {len(df)} records')
+
+        load_task = PythonOperator(task_id=’load’, python_callable=hello_world, ...)
+        ```
+
+    * Airflow comes with many Hooks that can integrate with common systems. Here are a few common ones:
+        * `HttpHook`
+        * `PostgresHook` (works with RedShift)
+        * `MySqlHook`
+        * `SlackHook`
+        * `PrestoHook`
+    
+    * ![airflow_hooks](./images/airflow_hooks.png)
+
+* Add Airflow Connections
+
+    * Here, we'll use Airflow's UI to configure your AWS credentials.
+
+        * To go to the Airflow UI.
+        * Click on the `Admin` tab and select `Connections`.
+        * ![airflow_connections](./images/airflow_connections.png)
+        * Under `Connections`, select `Create`.
+        * ![airflow_connections](./images/airflow_connections2.png)
+        * On the create connection page, enter the following values:
+            * `Conn Id`: Enter aws_credentials.
+            * `Conn Type`: Enter Amazon Web Services.
+            * `Login`: Enter your `Access key ID` from the IAM User credentials you downloaded earlier.
+            * `Password`: Enter your `Secret access key` from the IAM User credentials you downloaded earlier. Once you've entered these values, select Save.
+        * ![airflow_connections](./images/airflow_connections3.png)
+    
+    * ![airflow_connections](./images/airflow_connections4.png)
+
+    * ![airflow_connections](./images/airflow_connections5.png)
+
+    * ![airflow_connections](./images/airflow_connections6.png)
+
+    * ![airflow_connections](./images/airflow_connections7.png)
+
+    * ![airflow_connections](./images/airflow_connections8.png)
+
+    * ![airflow_connections](./images/airflow_connections9.png)
+
+    * ![airflow_connections](./images/airflow_connections9a.png)
+
+    * ![airflow_connections](./images/airflow_connections10.png)
+
+    * ```python
+        import datetime
+        import logging
+
+        from airflow import DAG
+        from airflow.models import Variable
+        from airflow.operators.python_operator import PythonOperator
+        from airflow.hooks.S3_hook import S3Hook
+
+
+        def list_keys():
+            hook = S3Hook(aws_conn_id='aws_credentials')
+            bucket = Variable.get('s3_bucket')
+            prefix = Variable.get('s3_prefix')
+            logging.info(f"Listing Keys from {bucket}/{prefix}")
+            keys = hook.list_keys(bucket, prefix=prefix)
+            for key in keys:
+                logging.info(f"- s3://{bucket}/{key}")
+
+
+        dag = DAG(
+                'lesson1.exercise4',
+                start_date=datetime.datetime.now())
+
+        list_task = PythonOperator(
+            task_id="list_keys",
+            python_callable=list_keys,
+            dag=dag
+        )
+        ```
+
+* Runtime Variables
+    * Airflow leverages templating to allow users to “fill in the blank” with important runtime variables for tasks.
+
+    * ```python
+        from airflow import DAG
+        from airflow.operators.python_operator import PythonOperator
+
+        def hello_date(*args, **kwargs):
+            print(f"Hello {kwargs['execution_date']}")
+
+        divvy_dag = DAG(...)
+        task = PythonOperator(
+            task_id="hello_date",
+            python_callable=hello_date,
+            provide_context=True,
+            dag=divvy_dag)
+        ```
+        * `provide_context` = Runtime context to be injected as `kwargs` (keyword arguments)
+    
+    * [Here](https://airflow.apache.org/docs/apache-airflow/stable/templates-ref.html) is the Apache Airflow documentation on **context variables** that can be included as `kwargs`.
+
+    * Here is a link to a [blog post](https://godatadriven.com/blog/the-zen-of-python-and-apache-airflow/) that also discusses this topic.
+
+    * ![airflow_context](./images/airflow_context.png)
+
+    * Updated link for Airflow documentation on context variables: https://airflow.apache.org/docs/apache-airflow/stable/macros-ref.html
+
+    * ![airflow_context](./images/airflow_context1.png) 
+
+* Exercise using Redshift
+
+    * ![redshift_airflow](./images/redshift_airflow.png) 
+
+* Exercise - Build the S3 to Redshift Dag
+
+    * ```python
+            import datetime
+            import logging
+
+            from airflow import DAG
+            from airflow.contrib.hooks.aws_hook import AwsHook
+            from airflow.hooks.postgres_hook import PostgresHook
+            from airflow.operators.postgres_operator import PostgresOperator
+            from airflow.operators.python_operator import PythonOperator
+
+            import sql_statements
+
+
+            def load_data_to_redshift(*args, **kwargs):
+                aws_hook = AwsHook("aws_credentials")
+                credentials = aws_hook.get_credentials()
+                redshift_hook = PostgresHook("redshift")
+                redshift_hook.run(sql.COPY_ALL_TRIPS_SQL.format(credentials.access_key, credentials.secret_key))
+
+
+            dag = DAG(
+                'lesson1.exercise6',
+                start_date=datetime.datetime.now()
+            )
+
+            create_table = PostgresOperator(
+                task_id="create_table",
+                dag=dag,
+                postgres_conn_id="redshift",
+                sql=sql_statements.CREATE_TRIPS_TABLE_SQL
+            )
+
+            copy_task = PythonOperator(
+                task_id='load_from_s3_to_redshift',
+                dag=dag,
+                python_callable=load_data_to_redshift
+            )
+
+            location_traffic_task = PostgresOperator(
+                task_id="calculate_location_traffic",
+                dag=dag,
+                postgres_conn_id="redshift",
+                sql=sql_statements.LOCATION_TRAFFIC_SQL
+            )
+
+            create_table >> copy_task
+            copy_task >> location_traffic_task
+        ```
