@@ -2245,3 +2245,332 @@
             create_table >> copy_task
             copy_task >> location_traffic_task
         ```
+
+### Data Quality
+
+* **Data Lineage**
+    * The data lineage of a dataset describes the **discrete steps involved in the creation, movement, and calculation of that dataset**.
+
+* Why is `Data Lineage` important?
+
+    * `Instilling Confidence`: Being able to describe the data lineage of a particular dataset or analysis will build confidence in data consumers (engineers, analysts, data scientists, etc.) that our data pipeline is creating meaningful results using the correct datasets. If the `data lineage` is unclear, its less likely that the data consumers will trust or use the data.
+    * `Defining Metrics`: Another major benefit of surfacing `data lineage` is that it allows everyone in the organization to **agree on the definition of how a particular metric is calculated**.
+    * `Debugging`: Data lineage helps data engineers track down the root of errors when they occur. If each step of the data movement and transformation process is well described, it's easy to find problems when they occur.
+
+    * In general, data lineage has important implications for a business. Each department or business unit's success is tied to data and to the flow of data between departments. For e.g., sales departments rely on data to make sales forecasts, while at the same time the finance department would need to track sales and revenue. Each of these departments and roles depend on data, and knowing where to find the data. Data flow and data lineage tools enable data engineers and architects to track the flow of this large web of data.
+
+    * ![airflow_datalineage](./images/airflow_datalineage.png)
+
+    * ![airflow_datalineage](./images/airflow_datalineage2.png)
+
+    * **Airflow keeps a record of historical DAG and task executions, but it does not store the code from those historical runs. Whatever the latest code is in your DAG definition is what Airflow will render for you in the browser.**
+
+    * Lab: `airflow/solution1.py`
+
+* Schedules
+
+    * Pipelines are often driven by schedules which determine what data should be analyzed and when.
+
+    * Why Schedules
+
+        * Pipeline schedules can reduce the amount of data that needs to be processed in a given run. It helps scope the job to only run the data for the time period since the data pipeline last ran. In a naive analysis, with no scope, we would analyze all of the data at all times.
+        * Using schedules to select only data relevant to the time period of the given pipeline execution can help improve the quality and accuracy of the analyses performed by our pipeline.
+        * Running pipelines on a schedule will decrease the time it takes the pipeline to run.
+        * An analysis of larger scope can leverage already-completed work. For. e.g., if the aggregates for all months prior to now have already been done by a scheduled job, then we only need to perform the aggregation for the current month and add it to the existing totals.
+    
+    * Selecting the time period
+
+        * Determining the appropriate time period for a schedule is based on a number of factors which you need to consider as the pipeline designer.
+
+        * `What is the size of data, on average, for a time period?` If an entire years worth of data is only a few kb or mb, then perhaps its fine to load the entire dataset. If an hours worth of data is hundreds of mb or even in the gbs then likely you will need to schedule your pipeline more frequently.
+
+        * `How frequently is data arriving, and how often does the analysis need to be performed?` If our bikeshare company needs trip data every hour, that will be a driving factor in determining the schedule. Alternatively, if we have to load hundreds of thousands of tiny records, even if they don't add up to much in terms of mb or gb, the file access alone will slow down our analysis and we’ll likely want to run it more often.
+
+        * `What's the frequency on related datasets?` A good rule of thumb is that the frequency of a pipeline’s schedule should be determined by the dataset in our pipeline which requires the most frequent analysis. This isn’t universally the case, but it's a good starting assumption. For example, if our trips data is updating every hour, but our bikeshare station table only updates once a quarter, we’ll probably want to run our trip analysis every hour, and not once a quarter.
+    
+    * ![schedules_airflow](./images/schedules_airflow.png)
+
+    * ![schedules_airflow2](./images/schedules_airflow2.png)
+
+* Schedules in Airflow
+
+    * Start Date
+
+        * Airflow will begin running pipelines on the `start date` selected. Whenever the start date of a `DAG` is in the past, and the **time difference between the start date and now includes more than one schedule intervals**, Airflow will automatically schedule and execute a `DAG` run to satisfy each one of those `intervals`. This feature is useful in almost all enterprise settings, where companies have established years of data that may need to be retroactively analyzed.
+    
+    * End Date
+
+        * Airflow pipelines can also have `end dates`. You can use an `end_date` with your pipeline to let Airflow know when to stop running the pipeline. `End_dates` can also be useful when you want to perform an overhaul or redesign of an existing pipeline. Update the old pipeline with an `end_date` and then have the new pipeline `start on the end date` of the old pipeline.
+
+    * ![schedules_airflow3](./images/schedules_airflow3.png) 
+
+
+    * ![airflow_max_active_runs](./images/airflow_max_active_runs.png)
+
+        * `max_active_runs` defines how many parallel `DAG`s we may have running at a given time. For example, if I have a job that is back filling 12 months worth of data we could run them in parallel (if those monthly jobs are independent from each other). 
+
+    * Lab: `airflow/solution2.py`
+
+* **Partitioning**
+    * There are other types of partitioning.
+        * Logical partitioning
+        * Size partitioning or data size partitioning.
+        * You could also partition around events
+        * Time is a common one
+    
+    * Schedule partitioning
+        * Not only are schedules great for reducing the amount of data our pipelines have to process, but they also help us guarantee that we can meet timing guarantees that our data consumers may need.
+    
+    * Logical partitioning
+        * `Conceptually related data` can be partitioned into discrete segments and processed separately. This process of separating data based on its `conceptual relationship` is called `logical partitioning`. With `logical partitioning`, unrelated things belong in separate steps. Consider your dependencies and separate processing around those boundaries.
+
+        * Also worth mentioning, the `data location is another form of logical partitioning`. For example, if our data is stored in a `key-value` store like Amazon's S3 in a format such as: `s3://<bucket>/<year>/<month>/<day>` we could say that our date is `logically partitioned by time`.
+
+        * ![airflow_partitioning](./images/airflow_partitioning.png)
+    
+    * Size Partitioning
+        * Size partitioning separates data for processing based on desired or required storage limits. This essentially sets the amount of data included in a data pipeline run. Size partitioning is critical to understand when working with large datasets, especially with Airflow.
+
+        * ![airflow_partitioning](./images/airflow_partitioning1.png)
+
+        * ![airflow_partitioning](./images/airflow_partitioning2.png)
+
+* Why Data Partitioning?
+
+    * **Pipelines designed to work with partitioned data fail more gracefully**. Smaller datasets, smaller time periods, and related concepts are easier to debug than big datasets, large time periods, and unrelated concepts. **Partitioning makes debugging and rerunning failed tasks much simpler**. It also enables easier redos of work, reducing cost and time.
+
+    * Another great thing about Airflow is that **if your data is partitioned appropriately, your tasks will naturally have fewer dependencies on each other**. Because of this, Airflow will be able to **parallelize** execution of your `DAGs` to produce your results even faster.
+
+    * ![airflow_partitioning](./images/airflow_partitioning3.png)
+
+    * Lab `airflow/solution3.py`
+
+    * ![airflow_partitioning](./images/airflow_partitioning4.png)
+        * Using airflow context variables (runtime variables). `provide_context=True`
+
+* Data Quality
+
+    * Examples of Data Quality Requirements
+        * Data must be a certain size
+        * Data must be accurate to some margin of error
+        * Data must arrive within a given timeframe from the start of execution
+        * Pipelines must run on a particular schedule
+        * Data must not contain any sensitive information
+    
+    * Lab `airflow/solution4.py`
+
+    * ![airflow_data_quality](./images/airflow_data_quality.png)
+        * Making a task to validate data quality (specifically size constraint). If it is not complaint, we can raise an exception.
+
+    * ![airflow_data_quality](./images/airflow_sla.png)
+        * Setting an `SLA` on our `DAG`
+
+### Production Data Pipelines
+
+* Airflow Plugins
+
+    * Airflow was built with the intention of allowing its users to extend and customize its functionality through `plugins`. The most common types of user-created plugins for Airflow are `Operators` and `Hooks`. These plugins make `DAG`s reusable and simpler to maintain.
+
+    * To create custom operator, follow the steps:
+        * Identify Operators that perform similar functions and can be consolidated
+        * Define a new `Operator` in the plugins folder
+        * Replace the original `Operators` with your new custom one, re-parameterize, and instantiate them.
+    
+    * ![airflow_custom_operator](./images/airflow_custom_operator.png)
+
+    * ![airflow_custom_operator](./images/airflow_custom_operator1.png)
+
+* Airflow Contrib
+
+    * Airflow has a rich and vibrant open source community. This community is constantly adding new functionality and extending the capabilities of Airflow. As an Airflow user, you should always check [Airflow contrib](https://github.com/apache/airflow/tree/main/airflow/contrib) before building your own airflow plugins, to see if what you need already exists.
+
+    * `Operators` and `hooks` for common data tools like `Apache Spark` and `Cassandra`, as well as vendor specific integrations for `Amazon Web Services`, `Azure`, and `Google Cloud Platform` can be found in `Airflow contrib`. If the functionality exists and its not quite what you want, that’s a great opportunity to add that functionality through an open source contribution.
+
+    * [Check out Airflow Contrib](https://github.com/apache/airflow/tree/main/airflow/contrib)
+
+    * ![airflow_custom_hook](./images/airflow_custom_hook.png)
+
+* Custom operator:
+    * ![airflow_custom_operator](./images/airflow_custom_operator2.png)
+
+    * ![airflow_custom_operator](./images/airflow_custom_operator3.png)
+
+        * All custom operators inherent from `BaseOperator`. We also have a `__init__` constructor method and a `execute` method.
+
+* Task Boundaries
+    * **DAG tasks** should be designed such that they are:
+        * Atomic and have a single purpose
+        * Maximize parallelism
+        * Make failure states obvious
+    
+    * Every task in your **dag should perform only one job**.
+        * “Write programs that do one thing and do it well.” - Ken Thompson’s Unix Philosophy
+
+    * Benefits of Task Boundaries
+        * `Re-visitable`: Task boundaries are useful for you if you revisit a pipeline you wrote after a 6 month absence. You'll have a much easier time understanding how it works and the lineage of the data if the boundaries between tasks are clear and well defined. This is true in the code itself, and within the Airflow UI.
+        * **Tasks that do just one thing are often more easily parallelized**. This parallelization can offer a significant speedup in the execution of our **DAG**s.
+
+* SubDAGs
+
+    * **Commonly repeated series of tasks within DAGs can be captured as reusable SubDAGs.** Benefits include:
+
+        * Decrease the amount of code we need to write and maintain to create a new `DAG`
+        * Easier to understand the **high level goals** of a `DAG`
+        * Bug fixes, speedups, and other enhancements can be made more quickly and distributed to all `DAG`s that use that `SubDAG`
+    
+    * ![airflow_subdag](./images/airflow_subdag.png)
+
+    * Drawbacks of Using SubDAGs
+        * Limit the visibility within the `Airflow UI`
+        * Abstraction makes understanding what the `DAG` is doing more difficult
+        * Encourages premature optimization
+    
+    * Common Questions
+        * Can Airflow **nest** `subDAGs`? - Yes, you can nest `subDAGs`. However, you should have a really good reason to do so because it makes it much harder to understand what's going on in the code. Generally, `subDAG`s are not necessary at all, let alone `subDAG`s within `subDAG`s.
+
+        * ![airflow_subdag](./images/airflow_subdag1.png)
+    
+    * ![airflow_subdag](./images/airflow_subdag2.png)
+
+    * ![airflow_subdag](./images/airflow_subdag3.png)
+
+* Pipeline Monitoring
+
+    * Airflow can surface metrics and emails to help you stay on top of pipeline issues.
+
+    * SLAs
+
+        * Airflow `DAG`s may optionally specify an `SLA`, or “Service Level Agreement”, which is defined as **a time by which a `DAG` must complete**. For time-sensitive applications these features are critical for developing trust amongst your pipeline customers and ensuring that data is delivered while it is still meaningful. Slipping SLAs can also be **early indicators of performance problems**, or a need to scale up the size of your Airflow cluster
+    
+    * Emails and Alerts
+
+        * Airflow can be configured to send emails on `DAG` and task state changes. These state changes may include `successes, failures, or retries`. Failure `emails` can allow you to easily trigger alerts. It is common for alerting systems like `PagerDuty` to accept emails as a source of alerts. If a mission-critical data pipeline fails, you will need to know as soon as possible to get online and get it fixed.
+    
+    * Metrics
+        * Airflow comes out of the box with the ability to `send system metrics using a metrics aggregator called statsd`. `Statsd` can be coupled with metrics visualization tools like `Grafana` to provide you and your team high level insights into the overall performance of your `DAG`s, jobs, and tasks. These systems can be integrated into your alerting system, such as pagerduty, so that you can ensure problems are dealt with immediately. These Airflow system-level metrics allow you and your team to stay ahead of issues before they even occur by watching long-term trends.
+    
+    * ![airflow_monitoring](./images/airflow_monitoring.png)
+
+    * ![airflow_monitoring](./images/airflow_monitoring1.png)
+
+    * ![airflow_monitoring](./images/airflow_monitoring2.png)
+
+* Solution for Exercise 4: Building a Full Pipeline
+
+    * ```python
+        import datetime
+
+        from airflow import DAG
+
+        from airflow.operators import (
+            FactsCalculatorOperator,
+            HasRowsOperator,
+            S3ToRedshiftOperator
+        )
+
+        #
+        # The following DAG performs the following functions:
+        #
+        #       1. Loads Trip data from S3 to RedShift
+        #       2. Performs a data quality check on the Trips table in RedShift
+        #       3. Uses the FactsCalculatorOperator to create a Facts table in Redshift
+        #           a. **NOTE**: to complete this step you must complete the FactsCalcuatorOperator
+        #              skeleton defined in plugins/operators/facts_calculator.py
+        #
+        dag = DAG("lesson3.exercise4", start_date=datetime.datetime.utcnow())
+
+        #
+        # The following code will load trips data from S3 to RedShift. Use the s3_key
+        #       "data-pipelines/divvy/unpartitioned/divvy_trips_2018.csv"
+        #       and the s3_bucket "udacity-dend"
+        #
+        copy_trips_task = S3ToRedshiftOperator(
+            task_id="load_trips_from_s3_to_redshift",
+            dag=dag,
+            table="trips",
+            redshift_conn_id="redshift",
+            aws_credentials_id="aws_credentials",
+            s3_bucket="udacity-dend",
+            s3_key="data-pipelines/divvy/unpartitioned/divvy_trips_2018.csv"
+        )
+
+        #
+        #  Data quality check on the Trips table
+        #
+        check_trips = HasRowsOperator(
+            task_id="check_trips_data",
+            dag=dag,
+            redshift_conn_id="redshift",
+            table="trips"
+        )
+
+        #
+        # We use the FactsCalculatorOperator to create a Facts table in RedShift. The fact column is
+        #  `tripduration` and the groupby_column is `bikeid`
+        #
+        calculate_facts = FactsCalculatorOperator(
+            task_id="calculate_facts_trips",
+            dag=dag,
+            redshift_conn_id="redshift",
+            origin_table="trips",
+            destination_table="trips_facts",
+            fact_column="tripduration",
+            groupby_column="bikeid"
+        )
+
+        #
+        # Task ordering for the DAG tasks 
+        #
+        copy_trips_task >> check_trips
+        check_trips >> calculate_facts
+        ```
+    
+* Solution code for the Custom Operator: `facts_calculator`
+
+    * ```python
+        import logging
+
+        from airflow.hooks.postgres_hook import PostgresHook
+        from airflow.models import BaseOperator
+        from airflow.utils.decorators import apply_defaults
+
+
+        class FactsCalculatorOperator(BaseOperator):
+            facts_sql_template = """
+            DROP TABLE IF EXISTS {destination_table};
+            CREATE TABLE {destination_table} AS
+            SELECT
+                {groupby_column},
+                MAX({fact_column}) AS max_{fact_column},
+                MIN({fact_column}) AS min_{fact_column},
+                AVG({fact_column}) AS average_{fact_column}
+            FROM {origin_table}
+            GROUP BY {groupby_column};
+            """
+
+            @apply_defaults
+            def __init__(self,
+                        redshift_conn_id="",
+                        origin_table="",
+                        destination_table="",
+                        fact_column="",
+                        groupby_column="",
+                        *args, **kwargs):
+
+                super(FactsCalculatorOperator, self).__init__(*args, **kwargs)
+                self.redshift_conn_id = redshift_conn_id
+                self.origin_table = origin_table
+                self.destination_table = destination_table
+                self.fact_column = fact_column
+                self.groupby_column = groupby_column
+
+            def execute(self, context):
+                redshift = PostgresHook(postgres_conn_id=self.redshift_conn_id)
+                facts_sql = FactsCalculatorOperator.facts_sql_template.format(
+                    origin_table=self.origin_table,
+                    destination_table=self.destination_table,
+                    fact_column=self.fact_column,
+                    groupby_column=self.groupby_column
+                )
+                redshift.run(facts_sql)
+        ```
