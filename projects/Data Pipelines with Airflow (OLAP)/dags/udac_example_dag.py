@@ -19,13 +19,13 @@ DAG_NAME = 'udac_example_dag'
 
 default_args = {
     'owner': 'udacity',
-    'depends_on_past': True,
+    'depends_on_past': False,
     'start_date': datetime(2019, 1, 12),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1,
+    'retries': 3,
     'retry_delay': timedelta(minutes=5),
-    'catchup': True
+    'catchup': False
 }
 
 dag = DAG('udac_example_dag',
@@ -131,11 +131,30 @@ load_time_dimension_table = SubDagOperator(
     dag=dag,
 )
 
+has_rows_checker = lambda records: len(records) == 1 and len(records[0]) == 1 and records[0][0] > 0
+has_no_rows_checker = lambda records: len(records) == 1 and len(records[0]) == 1 and records[0][0] == 0
+sql_count_query = 'SELECT COUNT(*) FROM {}'
+
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
-    dag=dag,
-    redshift_conn_id="redshift",
-    tables=["artists", "songplays", "songs", "time", "users"]
+    redshift_conn_id='redshift',
+    sql_statements=(
+        sql_count_query.format('songplays'), 
+        sql_count_query.format('users'),
+        sql_count_query.format('artists'),
+        sql_count_query.format('songs'), 
+        sql_count_query.format('time'), 
+        'SELECT COUNT(*) FROM users WHERE first_name IS NULL'
+    ),
+    checks=(
+        has_rows_checker, 
+        has_rows_checker,
+        has_rows_checker, 
+        has_rows_checker,
+        has_rows_checker, 
+        has_no_rows_checker
+    ),
+    dag=dag
 )
 
 end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)

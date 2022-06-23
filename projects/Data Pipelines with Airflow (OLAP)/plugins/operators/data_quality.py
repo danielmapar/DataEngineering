@@ -9,22 +9,24 @@ class DataQualityOperator(BaseOperator):
     @apply_defaults
     def __init__(self,
                  redshift_conn_id="",
-                 tables = [],
+                 sql_statements=(),
+                 checks=(),
                  *args, **kwargs):
+
+        if len(sql_statements) != len(checks):
+            raise Exception('sql_statements and checks must have the same number of elements.')
 
         super(DataQualityOperator, self).__init__(*args, **kwargs)
         self.redshift_conn_id = redshift_conn_id
-        self.tables = tables
+        self.sql_statements = sql_statements
+        self.checks = checks
 
     def execute(self, context):
         redshift_hook = PostgresHook(postgres_conn_id = self.redshift_conn_id)
-        
-        for table in self.tables:
-            self.log.info(f"Running data quality validation for table: {table}")
-            records = redshift_hook.get_records(f"select count(*) from {table};")
 
-            if len(records) < 1 or len(records[0]) < 1 or records[0][0] < 1:
-                self.log.error(f"Data quality validation process failed for table : {table}.")
-                raise ValueError(f"Data quality validation process failed for table : {table}.")
-
-            self.log.info(f"The data quality validation was successful for table: {table}")
+        for sql_statements, checks in zip(self.sql_statements, self.checks):
+            self.log.info(f"Running data quality validation: {sql_statements}")
+            records = redshift_hook.get_records(sql_statements)
+            if not checks(records):
+                raise ValueError('Data quality check failed: {}'.format(sql_statements))
+            self.log.info(f"The data quality validation was successful: {sql_statements}")
